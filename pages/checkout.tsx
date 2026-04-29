@@ -3,18 +3,31 @@ import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import { apiGetOrder, getAccessToken } from "@/lib/api";
+import {
+  apiCreateBookCheckout,
+  apiCreateCourseCheckout,
+  apiCreatePaymentTransaction,
+  apiGetOrder,
+  getAccessToken
+} from "@/lib/api";
 import { clearCheckoutDraft, getCheckoutDraft, setCheckoutDraft } from "@/lib/checkoutDraft";
 import { formatMoney } from "@/lib/money";
 import type { CheckoutDraft } from "@/lib/types";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<CheckoutDraft | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [remoteOrder, setRemoteOrder] = useState<any | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -44,14 +57,89 @@ export default function CheckoutPage() {
     return draft.unitPrice * draft.quantity;
   }, [draft, remoteOrder]);
 
+  const handlePayment = async () => {
+    const accessToken = getAccessToken();
+    // Nonaktifkan alert login agar guest bisa checkout
+    // if (!accessToken) {
+    //   alert("Please login first");
+    //   return;
+    // }
+
+    setIsProcessing(true);
+    try {
+      let orderId = remoteOrder?.order?.id;
+      const apiToken = accessToken || undefined;
+
+      // 1. If no remote order yet, create it first
+      if (!orderId && draft) {
+        if (draft.kind === "course") {
+          const res = await apiCreateCourseCheckout({
+            accessToken: apiToken,
+            courseSlug: draft.courseSlug,
+            sessionId: draft.scheduleId,
+            mode: draft.mode,
+            locationId: draft.locationId,
+            attendeeName: draft.attendeeName,
+            attendeeEmail: draft.attendeeEmail,
+            attendeePhone: draft.attendeePhone,
+            quantity: draft.quantity
+          });
+          orderId = res.order.id;
+        } else {
+          const res = await apiCreateBookCheckout({
+            accessToken: apiToken,
+            bookSlug: draft.bookSlug,
+            buyerEmail: draft.buyerEmail,
+            quantity: draft.quantity
+          });
+          orderId = res.order.id;
+        }
+      }
+
+      if (!orderId) throw new Error("Could not determine order ID");
+
+      // 2. Get Midtrans Snap Token
+      const { token } = await apiCreatePaymentTransaction({ accessToken: apiToken, orderId });
+
+      // 3. Open Midtrans Snap
+      if (window.snap) {
+        window.snap.pay(token, {
+          onSuccess: (result: any) => {
+            console.log("payment success", result);
+            clearCheckoutDraft();
+            router.push(`/checkout?orderId=${orderId}`);
+          },
+          onPending: (result: any) => {
+            console.log("payment pending", result);
+            clearCheckoutDraft();
+            router.push(`/checkout?orderId=${orderId}`);
+          },
+          onError: (result: any) => {
+            console.log("payment error", result);
+            alert("Payment failed");
+          },
+          onClose: () => {
+            console.log("customer closed the popup without finishing the payment");
+          }
+        });
+      } else {
+        alert("Midtrans payment gateway is still loading. Please try again in a moment.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to process payment");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
-    <Layout title="Checkout — Bagdja Course" description="Order summary (payment integration coming soon).">
+    <Layout title="Checkout — Bagdja Course" description="Order summary and payment.">
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-text">Checkout</h1>
           <p className="mt-2 text-sm text-muted">
-            Halaman ini hanya menampilkan detail order. Pembayaran akan di-handle oleh project{" "}
-            <span className="text-text">bagdja-payment</span>.
+            Selesaikan pembayaran Anda untuk mendapatkan akses ke kursus atau buku.
           </p>
 
           <div className="mt-6">
@@ -91,12 +179,13 @@ export default function CheckoutPage() {
                   >
                     Clear view
                   </Button>
-                  <Button variant="secondary" onClick={() => alert("Integrate bagdja-payment here")}>
-                    Proceed to payment
+                  <Button
+                    variant="secondary"
+                    onClick={handlePayment}
+                    disabled={isProcessing || remoteOrder.order.status === "paid"}
+                  >
+                    {isProcessing ? "Processing..." : remoteOrder.order.status === "paid" ? "Paid" : "Pay Now"}
                   </Button>
-                </div>
-                <div className="mt-3 text-xs text-muted">
-                  Tombol payment masih placeholder (akan diarahkan ke flow `bagdja-payment`).
                 </div>
               </Card>
             ) : !draft ? (
@@ -160,12 +249,9 @@ export default function CheckoutPage() {
                   >
                     Clear order
                   </Button>
-                  <Button variant="secondary" onClick={() => alert("Integrate bagdja-payment here")}>
-                    Proceed to payment
+                  <Button variant="secondary" onClick={handlePayment} disabled={isProcessing}>
+                    {isProcessing ? "Processing..." : "Proceed to payment"}
                   </Button>
-                </div>
-                <div className="mt-3 text-xs text-muted">
-                  Tombol payment masih placeholder (akan diarahkan ke flow `bagdja-payment`).
                 </div>
               </Card>
             )}

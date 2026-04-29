@@ -20,7 +20,9 @@ async function apiFetch<T>(path: string, init?: RequestInit & { accessToken?: st
   const headers = new Headers(init?.headers);
   headers.set("accept", "application/json");
   if (init?.body) headers.set("content-type", "application/json");
-  if (init?.accessToken) headers.set("authorization", `Bearer ${init.accessToken}`);
+  if (init?.accessToken) {
+    headers.set("authorization", `Bearer ${init.accessToken}`);
+  }
 
   const res = await fetch(url, { ...init, headers });
   const text = await res.text();
@@ -111,7 +113,7 @@ export async function apiListEvents(active = true) {
 }
 
 export async function apiCreateCourseCheckout(input: {
-  accessToken: string;
+  accessToken?: string;
   courseSlug: string;
   sessionId: string;
   mode: "online" | "offline";
@@ -130,7 +132,7 @@ export async function apiCreateCourseCheckout(input: {
 }
 
 export async function apiCreateBookCheckout(input: {
-  accessToken: string;
+  accessToken?: string;
   bookSlug: string;
   buyerEmail: string;
   quantity: number;
@@ -143,9 +145,18 @@ export async function apiCreateBookCheckout(input: {
   return res.data;
 }
 
-export async function apiGetOrder(input: { accessToken: string; id: string }) {
+export async function apiGetOrder(input: { accessToken?: string; id: string }) {
   const res = await apiFetch<ApiEnvelope<any>>(`/orders/${encodeURIComponent(input.id)}`, {
     accessToken: input.accessToken
   });
   return res.data;
+}
+
+export async function apiCreatePaymentTransaction(input: { accessToken?: string; orderId: string }) {
+  const res = await apiFetch<{ token: string; redirect_url: string }>("/payment/create-transaction", {
+    method: "POST",
+    accessToken: input.accessToken,
+    body: JSON.stringify({ orderId: input.orderId })
+  });
+  return res;
 }

@@ -4,13 +4,13 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-import { apiCreateCourseCheckout, apiGetCourse, apiListLocations, getAccessToken } from "@/lib/api";
+import { apiCreateCourseCheckout, apiGetCourse, apiListLocations, getAccessToken, fetchWithAuth } from "@/lib/api";
 import { setCheckoutDraft } from "@/lib/checkoutDraft";
 import { formatMoney } from "@/lib/money";
 import type { Course, CourseLocation } from "@/lib/types";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 export default function BookingPage(props: { course: Course; locations: CourseLocation[] }) {
   const router = useRouter();
@@ -22,6 +22,26 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
   const [attendeeEmail, setAttendeeEmail] = useState("");
   const [attendeePhone, setAttendeePhone] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) {
+      setIsLoggedIn(true);
+      fetchWithAuth("/users/me")
+        .then(res => res.json())
+        .then(user => {
+          setAttendeeName(user.full_name || user.username || "");
+          setAttendeeEmail(user.email || "");
+          setLoadingUser(false);
+        })
+        .catch(() => setLoadingUser(false));
+    } else {
+      setIsLoggedIn(false);
+      setLoadingUser(false);
+    }
+  }, []);
 
   const schedule = useMemo(
     () => (c.schedules ?? []).find((s) => s.id === scheduleId),
@@ -39,6 +59,16 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
     quantity >= 1 &&
     (c.mode === "online" || Boolean(locationId));
 
+  const handleLogin = () => {
+    const loginUrl = new URL(process.env.NEXT_PUBLIC_LOGIN_URL || "https://login.bagdja.com");
+    const appId = process.env.NEXT_PUBLIC_CLIENT_APP_ID || "course-app";
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+    callbackUrl.searchParams.set("redirect", router.asPath);
+    loginUrl.searchParams.set("app_id", appId);
+    loginUrl.searchParams.set("redirect_url", callbackUrl.toString());
+    window.location.href = loginUrl.toString();
+  };
+
   return (
     <Layout title={`Booking — ${c.title}`} description="Book a class and continue to checkout.">
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
@@ -52,7 +82,7 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <Card className="p-5">
-              <div className="text-sm font-semibold text-text">Schedule</div>
+              <div className="text-sm font-semibold text-text">Jadwal</div>
               <div className="mt-3">
                 <Select value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
                   {(c.schedules ?? []).map((s) => (
@@ -64,25 +94,31 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
               </div>
               {schedule ? (
                 <div className="mt-3 text-xs text-muted">
-                  Start: <span className="text-text">{schedule.startDate}</span> • {schedule.time}
+                  Mulai: <span className="text-text">{schedule.startDate}</span> • {schedule.time}
                 </div>
               ) : null}
             </Card>
 
             <Card className="p-5">
-              <div className="text-sm font-semibold text-text">Attendee</div>
+              <div className="text-sm font-semibold text-text">Peserta</div>
               <div className="mt-3 space-y-3">
-                <Input value={attendeeName} onChange={(e) => setAttendeeName(e.target.value)} placeholder="Full name" />
+                <Input 
+                  value={attendeeName} 
+                  onChange={(e) => setAttendeeName(e.target.value)} 
+                  placeholder="Nama lengkap" 
+                  disabled={loadingUser || isLoggedIn}
+                />
                 <Input
                   value={attendeeEmail}
                   onChange={(e) => setAttendeeEmail(e.target.value)}
-                  placeholder="Email"
+                  placeholder="E-mail"
                   inputMode="email"
+                  disabled={loadingUser || isLoggedIn}
                 />
                 <Input
                   value={attendeePhone}
                   onChange={(e) => setAttendeePhone(e.target.value)}
-                  placeholder="Phone (WhatsApp)"
+                  placeholder="Telepon (WhatsApp)"
                   inputMode="tel"
                 />
               </div>
@@ -92,14 +128,14 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
           {c.mode === "offline" ? (
             <div className="mt-4">
               <Card className="p-5">
-                <div className="text-sm font-semibold text-text">Location</div>
+                <div className="text-sm font-semibold text-text">Lokasi</div>
                 <div className="mt-3">
                   <Select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
                     {props.locations.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.city} — {l.address}
                       </option>
-                    ))}
+                    ))} 
                   </Select>
                 </div>
                 {location ? (
@@ -113,8 +149,8 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
         </div>
 
         <Card className="p-5">
-          <div className="text-sm font-semibold text-text">Order summary</div>
-          <div className="mt-1 text-sm text-muted">Draft checkout (payment coming soon).</div>
+          <div className="text-sm font-semibold text-text">Ringkasan pesanan</div>
+          <div className="mt-1 text-sm text-muted">Draf pembayaran (pembayaran akan segera dilakukan).</div>
 
           <div className="mt-5 space-y-3">
             <div className="flex items-start justify-between gap-4">
@@ -130,7 +166,7 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
             </div>
 
             <label className="block text-xs font-semibold text-muted">
-              Quantity
+              Kuantitas
               <Input
                 className="mt-2"
                 type="number"
@@ -146,10 +182,16 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
               <div className="text-xs text-muted">Total</div>
               <div className="text-lg font-extrabold text-text">{formatMoney(total)}</div>
             </div>
+            
             <Button
               variant="primary"
-              disabled={!canSubmit}
+              disabled={isLoggedIn && !canSubmit}
               onClick={async () => {
+                if (!isLoggedIn) {
+                  handleLogin();
+                  return;
+                }
+
                 const accessToken = getAccessToken();
                 if (accessToken) {
                   try {
@@ -165,35 +207,21 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
                       quantity
                     });
                     router.push(`/checkout?orderId=${encodeURIComponent(data.order.id)}`);
-                    return;
-                  } catch {
-                    // fall back to local draft
+                  } catch (err) {
+                    console.error("Checkout error:", err);
                   }
                 }
-
-                setCheckoutDraft({
-                  kind: "course",
-                  currency: "IDR",
-                  courseSlug: c.slug,
-                  courseTitle: c.title,
-                  mode: c.mode,
-                  scheduleId,
-                  locationId: c.mode === "offline" ? locationId : undefined,
-                  attendeeName: attendeeName.trim(),
-                  attendeeEmail: attendeeEmail.trim(),
-                  attendeePhone: attendeePhone.trim(),
-                  unitPrice: c.price,
-                  quantity,
-                  createdAt: new Date().toISOString()
-                });
-                router.push("/checkout");
               }}
             >
-              Continue to checkout
+              {isLoggedIn ? "Lanjutkan ke pembayaran" : "Login untuk lanjut memesan"}
             </Button>
           </div>
 
-          {!canSubmit ? (
+          {!isLoggedIn ? (
+            <div className="mt-3 text-xs text-muted">
+              Silakan login dengan akun Bagdja Anda untuk melanjutkan pemesanan.
+            </div>
+          ) : !canSubmit ? (
             <div className="mt-3 text-xs text-muted">
               Lengkapi jadwal, data peserta, dan lokasi (jika offline) untuk lanjut.
             </div>
@@ -205,11 +233,12 @@ export default function BookingPage(props: { course: Course; locations: CourseLo
 }
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  const slug = String(ctx.params?.slug || "");
-  try {
-    const [course, locations] = await Promise.all([apiGetCourse(slug), apiListLocations()]);
-    return { props: { course, locations } };
-  } catch {
-    return { notFound: true };
-  }
+  const slug = ctx.params?.slug as string;
+  const [course, locations] = await Promise.all([apiGetCourse(slug), apiListLocations()]);
+
+  if (!course) return {罩notFound: true };
+
+  return {
+    props: { course, locations }
+  };
 };

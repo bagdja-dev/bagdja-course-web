@@ -3,20 +3,49 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import { apiCreateBookCheckout, apiGetBook, getAccessToken } from "@/lib/api";
+import { apiCreateBookCheckout, apiGetBook, getAccessToken, fetchWithAuth } from "@/lib/api";
 import { setCheckoutDraft } from "@/lib/checkoutDraft";
 import { formatMoney } from "@/lib/money";
 import type { Book } from "@/lib/types";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 export default function BookDetailPage(props: { book: Book }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [qty, setQty] = useState(1);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) {
+      setIsLoggedIn(true);
+      fetchWithAuth("/users/me")
+        .then(res => res.json())
+        .then(user => {
+          setEmail(user.email || "");
+          setLoadingUser(false);
+        })
+        .catch(() => setLoadingUser(false));
+    } else {
+      setIsLoggedIn(false);
+      setLoadingUser(false);
+    }
+  }, []);
 
   const total = useMemo(() => props.book.price * qty, [props.book.price, qty]);
+
+  const handleLogin = () => {
+    const loginUrl = new URL(process.env.NEXT_PUBLIC_LOGIN_URL || "https://login.bagdja.com");
+    const appId = process.env.NEXT_PUBLIC_CLIENT_APP_ID || "course-app";
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+    callbackUrl.searchParams.set("redirect", router.asPath);
+    loginUrl.searchParams.set("app_id", appId);
+    loginUrl.searchParams.set("redirect_url", callbackUrl.toString());
+    window.location.href = loginUrl.toString();
+  };
 
   return (
     <Layout title={`${props.book.title} — Books`} description={props.book.subtitle}>
@@ -87,6 +116,11 @@ export default function BookDetailPage(props: { book: Book }) {
             <Button
               variant="primary"
               onClick={async () => {
+                if (!isLoggedIn) {
+                  handleLogin();
+                  return;
+                }
+
                 const accessToken = getAccessToken();
                 if (accessToken) {
                   try {
@@ -116,9 +150,14 @@ export default function BookDetailPage(props: { book: Book }) {
                 router.push("/checkout");
               }}
             >
-              Buy eBook
+              {isLoggedIn ? "Buy eBook" : "Login to Buy"}
             </Button>
           </div>
+          {!isLoggedIn && (
+            <div className="mt-3 text-xs text-muted">
+              Silakan login dengan akun Bagdja Anda untuk membeli eBook ini.
+            </div>
+          )}
           <div className="mt-3 text-xs text-muted">Format: PDF (download link after payment)</div>
         </Card>
       </div>

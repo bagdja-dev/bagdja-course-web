@@ -15,6 +15,20 @@ export function getAccessToken() {
   );
 }
 
+export async function fetchWithAuth(path: string, init?: RequestInit) {
+  const token = getAccessToken();
+  const url = `${getBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const headers = new Headers(init?.headers);
+  headers.set("accept", "application/json");
+  if (init?.body) {
+    headers.set("content-type", "application/json");
+  }
+  if (token) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+  return fetch(url, { ...init, headers });
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit & { accessToken?: string | null }) {
   const url = `${getBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   const headers = new Headers(init?.headers);

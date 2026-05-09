@@ -59,11 +59,10 @@ export default function CheckoutPage() {
 
   const handlePayment = async () => {
     const accessToken = getAccessToken();
-    // Nonaktifkan alert login agar guest bisa checkout
-    // if (!accessToken) {
-    //   alert("Please login first");
-    //   return;
-    // }
+    if (!accessToken) {
+      alert("Silakan login terlebih dahulu untuk melakukan pembayaran.");
+      return;
+    }
 
     setIsProcessing(true);
     try {

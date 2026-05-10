@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { fetchWithAuth } from "../lib/api";
 import Layout from "../components/layout/Layout";
 
@@ -41,7 +42,14 @@ export default function ProfilePage() {
         <div className="mb-8 flex items-center gap-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-1)] p-8">
           <div className="h-24 w-24 overflow-hidden rounded-full border-2 border-brand bg-brand flex items-center justify-center text-3xl font-bold text-[color:var(--bg-0)]">
             {user.avatar_url ? (
-              <img src={user.avatar_url} alt={user.username} className="h-full w-full object-cover" />
+              <Image
+                src={user.avatar_url}
+                alt={user.username}
+                width={96}
+                height={96}
+                unoptimized
+                className="h-full w-full object-cover"
+              />
             ) : (
               (user.full_name || user.username || "U").substring(0, 1).toUpperCase()
             )}

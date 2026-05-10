@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import Button from "../ui/Button";
 import { useRouter } from "next/router";
 import { useEffect, useState, useRef } from "react";
@@ -42,15 +43,15 @@ export default function Navbar() {
   const handleLogin = () => {
     const loginUrl = new URL(process.env.NEXT_PUBLIC_LOGIN_URL || "https://login.bagdja.com");
     const appId = process.env.NEXT_PUBLIC_CLIENT_APP_ID || "course-app";
-    
+
     // Tentukan callback URL
     const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
     // Masukkan path saat ini sebagai parameter redirect agar kembali ke halaman yang sama
     callbackUrl.searchParams.set("redirect", router.asPath);
-    
+
     loginUrl.searchParams.set("app_id", appId);
     loginUrl.searchParams.set("redirect_url", callbackUrl.toString());
-    
+
     window.location.href = loginUrl.toString();
   };
 
@@ -95,7 +96,14 @@ export default function Navbar() {
                   <span className="text-[10px] text-muted capitalize">{user.role || "Member"}</span>
                 </div>
                 {user.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.username} className="h-8 w-8 rounded-full object-cover border border-[color:var(--border)]" />
+                  <Image
+                    src={user.avatar_url}
+                    alt={user.username}
+                    width={32}
+                    height={32}
+                    unoptimized
+                    className="h-8 w-8 rounded-full object-cover border border-[color:var(--border)]"
+                  />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-brand flex items-center justify-center text-[color:var(--bg-0)] font-bold text-xs">
                     {(user.full_name || user.username || "U").substring(0, 1).toUpperCase()}

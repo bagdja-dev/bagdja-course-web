@@ -236,7 +236,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const slug = ctx.params?.slug as string;
   const [course, locations] = await Promise.all([apiGetCourse(slug), apiListLocations()]);
 
-  if (!course) return {罩notFound: true };
+  if (!course) return { notFound: true };
 
   return {
     props: { course, locations }

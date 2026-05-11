@@ -167,9 +167,10 @@ export async function apiGetOrder(input: { accessToken?: string; id: string }) {
 }
 
 export async function apiCreatePaymentTransaction(input: { accessToken?: string; orderId: string }) {
-  const res = await apiFetch<{ token: string; redirect_url: string }>("/payment/create-transaction", {
+  const accessToken = input.accessToken ?? getAccessToken() ?? undefined;
+  const res = await apiFetch<{ token: string; redirect_url?: string }>("/payment/create-transaction", {
     method: "POST",
-    accessToken: input.accessToken,
+    accessToken,
     body: JSON.stringify({ orderId: input.orderId })
   });
   return res;

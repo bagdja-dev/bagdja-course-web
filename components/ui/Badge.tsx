@@ -5,12 +5,15 @@ export default function Badge({
   tone = "muted"
 }: {
   children: ReactNode;
-  tone?: "muted" | "brand";
+  tone?: "muted" | "brand" | "success" | "warning" | "error";
 }) {
-  const tones =
-    tone === "brand"
-      ? "border-[color:rgba(242,178,74,0.25)] bg-[color:rgba(242,178,74,0.12)] text-[color:rgba(242,178,74,0.92)]"
-      : "border-[color:rgba(148,163,184,0.18)] bg-[color:rgba(148,163,184,0.08)] text-muted";
+  const tones = {
+    brand: "border-brand/20 bg-brand/10 text-brand",
+    success: "border-green-500/20 bg-green-500/10 text-green-500",
+    warning: "border-yellow-500/20 bg-yellow-500/10 text-yellow-500",
+    error: "border-red-500/20 bg-red-500/10 text-red-500",
+    muted: "border-slate-500/20 bg-slate-500/10 text-muted",
+  }[tone];
 
   return (
     <span

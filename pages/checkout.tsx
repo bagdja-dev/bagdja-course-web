@@ -97,11 +97,19 @@ export default function CheckoutPage() {
 
       if (!orderId) throw new Error("Could not determine order ID");
 
-      // 2. Get Midtrans Snap Token
-      const { token } = await apiCreatePaymentTransaction({ accessToken: apiToken, orderId });
+      // 2. Platform checkout → redirect to pay.bagdja.com; legacy → Snap token
+      const { token, redirect_url } = await apiCreatePaymentTransaction({
+        accessToken: apiToken,
+        orderId,
+      });
 
-      // 3. Open Midtrans Snap
-      if (window.snap) {
+      if (redirect_url) {
+        window.location.href = redirect_url;
+        return;
+      }
+
+      // 3. Open Midtrans Snap (direct / non-platform orders)
+      if (window.snap && token) {
         window.snap.pay(token, {
           onSuccess: (result: any) => {
             console.log("payment success", result);
@@ -122,7 +130,11 @@ export default function CheckoutPage() {
           }
         });
       } else {
-        alert("Midtrans payment gateway is still loading. Please try again in a moment.");
+        alert(
+          token
+            ? "Midtrans payment gateway is still loading. Please try again in a moment."
+            : "No payment redirect or token was returned. Please try again.",
+        );
       }
     } catch (err: any) {
       console.error(err);

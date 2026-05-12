@@ -84,7 +84,10 @@ export default function ProfilePage() {
             <p className="text-sm text-muted">Terima kasih atas pesanan Anda. Detail pesanan Anda dapat dilihat di riwayat pesanan.</p>
             {orderId && (
               <button
-                onClick={() => router.push(`/orders/${orderId}`)}
+                onClick={() => {
+                  const targetOrder = allOrders.find(o => o.id === orderId);
+                  router.push(`/orders/${targetOrder?.platformRefNumber || orderId}`);
+                }}
                 className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-green-600 hover:text-green-700 underline underline-offset-4"
               >
                 Lihat Detail Pesanan
@@ -166,7 +169,7 @@ export default function ProfilePage() {
                   </thead>
                   <tbody className="divide-y divide-[color:var(--border)] bg-[color:var(--bg-1)]">
                     {allOrders.map((o) => (
-                      <tr key={o.id} className="hover:bg-[color:var(--bg-2)] transition-colors cursor-pointer" onClick={() => router.push(`/orders/${o.id}`)}>
+                      <tr key={o.id} className="hover:bg-[color:var(--bg-2)] transition-colors cursor-pointer" onClick={() => router.push(`/orders/${o.platformRefNumber || o.id}`)}>
                         <td className="px-6 py-4 font-mono text-xs text-brand font-bold">{o.platformRefNumber || o.id.substring(0, 8).toUpperCase()}</td>
                         <td className="px-6 py-4">
                           {new Date(o.createdAt).toLocaleDateString("id-ID", {
